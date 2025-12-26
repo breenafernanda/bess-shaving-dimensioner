@@ -1,28 +1,45 @@
-import { COOKIE_NAME } from "@shared/const";
-import { getSessionCookieOptions } from "./_core/cookies";
-import { systemRouter } from "./_core/systemRouter";
+/**
+ * MÓDULO: Routers tRPC
+ * 
+ * Define todos os endpoints da aplicação usando tRPC procedures.
+ * Sem autenticação, todos os endpoints são públicos.
+ */
+
 import { publicProcedure, router } from "./_core/trpc";
+import { bessRouter } from "./routers/bess";
 
+/**
+ * Router principal da aplicação
+ * 
+ * Agrupa todos os procedures em namespaces lógicos.
+ * Exemplo de estrutura:
+ * - bess.upload
+ * - bess.simulate
+ * - tariff.list
+ * - tariff.create
+ */
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
-  system: systemRouter,
-  auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
-    }),
-  }),
+  /**
+   * Namespace: BESS (Battery Energy Storage System)
+   * 
+   * Procedures para upload de arquivos e simulações
+   */
+  bess: bessRouter,
 
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  /**
+   * Namespace: Tarifas
+   * 
+   * Procedures para gerenciar configurações tarifárias
+   */
+  tariff: router({
+    // TODO: Adicionar procedures aqui
+    // list: publicProcedure.query(...)
+    // create: publicProcedure.input(...).mutation(...)
+    // update: publicProcedure.input(...).mutation(...)
+    // delete: publicProcedure.input(...).mutation(...)
+  }),
 });
 
+// Exporta o tipo do router para uso no frontend
 export type AppRouter = typeof appRouter;
+

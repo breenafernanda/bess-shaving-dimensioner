@@ -1,3 +1,10 @@
+/**
+ * APLICAÇÃO: BESS Peak Shaving Dimensioner
+ * 
+ * Aplicação web para dimensionamento e análise de viabilidade de sistemas
+ * de armazenamento de energia (BESS) voltados para peak shaving.
+ */
+
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
@@ -5,31 +12,42 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
+import TestCaseGenerator from "./pages/TestCaseGenerator";
+import BessAnalysis from "./pages/BessAnalysis";
 
+/**
+ * Router principal da aplicação
+ * 
+ * Define todas as rotas disponíveis
+ */
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
+      {/* Página inicial */}
       <Route path={"/"} component={Home} />
+
+      {/* Gerador de casos de teste */}
+       <Route path={"/test-case-generator"} component={TestCaseGenerator} />
+
+      {/* Análise BESS */}
+      <Route path={"/bess-analysis"} component={BessAnalysis} />
+
+      {/* Página 404 */}
       <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
+
+      {/* Fallback para rotas não encontradas */}
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
-
+/**
+ * Componente raiz da aplicação
+ */
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
+      <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster />
           <Router />
