@@ -6,6 +6,7 @@
  */
 
 import { useState } from "react";
+import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -116,63 +117,38 @@ const PERIOD_OPTIONS = [
 ];
 
 export default function TestCaseGenerator() {
-  // =========================================================================
-  // ESTADO
-  // =========================================================================
-
-  // Estágio da empresa selecionado
+  // Estado
   const [selectedStage, setSelectedStage] = useState<number>(3);
-
-  // Severidade selecionada
-  const [selectedSeverity, setSelectedSeverity] = useState<string>("moderado");
-
-  // Período selecionado (dias)
+  const [selectedSeverity, setSelectedSeverity] = useState<"leve" | "moderado" | "grave">("moderado");
   const [selectedPeriod, setSelectedPeriod] = useState<number>(30);
-
-  // Estado de carregamento
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Resultado da geração
   const [generationResult, setGenerationResult] = useState<any>(null);
 
-  // =========================================================================
-  // HANDLERS
-  // =========================================================================
+  // Hook de mutation tRPC
+  const generateMutation = trpc.bess.generateTestCase.useMutation({
+    onSuccess: (data) => {
+      if (data.sucesso) {
+        setGenerationResult(data.dados);
+        toast.success("Caso de teste gerado com sucesso!");
+      } else {
+        toast.error(data.erro || "Erro ao gerar caso de teste");
+      }
+    },
+    onError: (error) => {
+      console.error("Erro:", error);
+      toast.error(error.message || "Erro ao gerar caso de teste");
+    },
+  });
 
   /**
-   * Gera um novo caso de teste
+   * Gera um novo caso de teste usando tRPC
    */
   const handleGenerateTestCase = async () => {
-    try {
-      setIsLoading(true);
-      setGenerationResult(null);
-
-      // Simular chamada ao backend
-      // Em produção, isso seria uma chamada tRPC
-      const response = await fetch("/api/trpc/bess.generateTestCase", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          stage: selectedStage,
-          severity: selectedSeverity,
-          days: selectedPeriod,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Erro ao gerar caso de teste");
-      }
-
-      const result = await response.json();
-      setGenerationResult(result);
-
-      toast.success("Caso de teste gerado com sucesso!");
-    } catch (error) {
-      console.error("Erro:", error);
-      toast.error("Erro ao gerar caso de teste");
-    } finally {
-      setIsLoading(false);
-    }
+    setGenerationResult(null);
+    generateMutation.mutate({
+      stage: selectedStage,
+      severity: selectedSeverity,
+      days: selectedPeriod,
+    });
   };
 
   /**
@@ -187,10 +163,7 @@ export default function TestCaseGenerator() {
     }
   };
 
-  // =========================================================================
-  // RENDER
-  // =========================================================================
-
+  // Configurações selecionadas
   const selectedStageConfig = COMPANY_STAGES.find((s) => s.id === selectedStage);
   const selectedSeverityConfig = SEVERITY_LEVELS.find(
     (s) => s.id === selectedSeverity
@@ -253,26 +226,30 @@ export default function TestCaseGenerator() {
               <CardHeader>
                 <CardTitle>2. Escolha o Nível de Severidade</CardTitle>
                 <CardDescription>
-                  Define a variabilidade da curva de carga
+                  Define a variabilidade do consumo de energia
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {SEVERITY_LEVELS.map((severity) => (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {SEVERITY_LEVELS.map((level) => (
                     <button
-                      key={severity.id}
-                      onClick={() => setSelectedSeverity(severity.id)}
+                      key={level.id}
+                      onClick={() => setSelectedSeverity(level.id as "leve" | "moderado" | "grave")}
                       className={`p-4 rounded-lg border-2 transition-all text-left ${
-                        selectedSeverity === severity.id
+                        selectedSeverity === level.id
                           ? "border-blue-500 bg-blue-50"
                           : "border-slate-200 hover:border-slate-300"
-                      } ${severity.color}`}
+                      }`}
                     >
-                      <div className="text-2xl mb-2">{severity.icon}</div>
-                      <div className="font-semibold">{severity.name}</div>
-                      <div className="text-sm mt-1">{severity.description}</div>
-                      <div className="text-xs mt-2 opacity-75">
-                        {severity.details}
+                      <div className="text-2xl mb-2">{level.icon}</div>
+                      <div className="font-semibold text-slate-900">
+                        {level.name}
+                      </div>
+                      <div className="text-sm text-slate-600 mt-1">
+                        {level.description}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-2">
+                        {level.details}
                       </div>
                     </button>
                   ))}
@@ -285,150 +262,150 @@ export default function TestCaseGenerator() {
               <CardHeader>
                 <CardTitle>3. Defina o Período de Análise</CardTitle>
                 <CardDescription>
-                  Quantos dias de dados deseja simular?
+                  Quantidade de dias para simular
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <Slider
-                  min={7}
-                  max={365}
-                  step={1}
-                  value={[selectedPeriod]}
-                  onValueChange={(value) => setSelectedPeriod(value[0])}
-                  className="w-full"
-                />
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Dias: {selectedPeriod}</Label>
+                  <Slider
+                    min={7}
+                    max={365}
+                    step={1}
+                    value={[selectedPeriod]}
+                    onValueChange={(value) => setSelectedPeriod(value[0])}
+                    className="w-full"
+                  />
+                </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                   {PERIOD_OPTIONS.map((option) => (
-                    <button
+                    <Button
                       key={option.value}
                       onClick={() => setSelectedPeriod(option.value)}
-                      className={`p-2 rounded text-sm font-medium transition-all ${
-                        selectedPeriod === option.value
-                          ? "bg-blue-500 text-white"
-                          : "bg-slate-200 text-slate-700 hover:bg-slate-300"
-                      }`}
+                      variant={selectedPeriod === option.value ? "default" : "outline"}
+                      size="sm"
+                      className="text-xs"
                     >
-                      {option.label.split("(")[0].trim()}
-                    </button>
+                      {option.label}
+                    </Button>
                   ))}
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="font-semibold text-blue-900">
-                    Período: {selectedPeriod} dias
-                  </div>
-                  <div className="text-sm text-blue-700 mt-1">
-                    {selectedPeriod * 24} pontos de dados (medições horárias)
-                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Botão de Geração */}
+            {/* Botão Gerar */}
             <Button
               onClick={handleGenerateTestCase}
-              disabled={isLoading}
+              disabled={generateMutation.isPending}
               size="lg"
               className="w-full bg-blue-600 hover:bg-blue-700 text-white"
             >
-              {isLoading ? (
+              {generateMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Gerando caso de teste...
+                  Gerando Caso de Teste...
                 </>
               ) : (
-                <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Gerar Caso de Teste
-                </>
+                "Gerar Caso de Teste"
               )}
             </Button>
           </div>
 
-          {/* Painel de Resumo */}
+          {/* Resumo e Resultado */}
           <div className="space-y-6">
             {/* Resumo de Configuração */}
-            <Card className="sticky top-6">
+            <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
               <CardHeader>
-                <CardTitle className="text-lg">Resumo</CardTitle>
+                <CardTitle className="text-lg">Resumo da Configuração</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label className="text-slate-600">Tamanho da Empresa</Label>
-                  <div className="font-semibold text-slate-900 mt-1">
+                  <div className="text-sm text-slate-600 mb-1">Tamanho da Empresa</div>
+                  <div className="font-semibold text-slate-900">
                     {selectedStageConfig?.name}
                   </div>
-                  <Badge className="mt-2">
+                  <div className="text-xs text-slate-600 mt-1">
                     {selectedStageConfig?.range}
-                  </Badge>
+                  </div>
                 </div>
 
-                <div className="border-t pt-4">
-                  <Label className="text-slate-600">Severidade</Label>
-                  <div className="font-semibold text-slate-900 mt-1">
+                <div className="border-t pt-3">
+                  <div className="text-sm text-slate-600 mb-1">Severidade</div>
+                  <div className="font-semibold text-slate-900">
                     {selectedSeverityConfig?.name}
                   </div>
-                  <div className="text-sm text-slate-600 mt-2">
+                  <div className="text-xs text-slate-600 mt-1">
                     {selectedSeverityConfig?.details}
                   </div>
                 </div>
 
-                <div className="border-t pt-4">
-                  <Label className="text-slate-600">Período</Label>
-                  <div className="font-semibold text-slate-900 mt-1">
+                <div className="border-t pt-3">
+                  <div className="text-sm text-slate-600 mb-1">Período</div>
+                  <div className="font-semibold text-slate-900">
                     {selectedPeriod} dias
                   </div>
-                  <div className="text-sm text-slate-600 mt-2">
-                    {selectedPeriod * 24} medições horárias
-                  </div>
                 </div>
-
-                {generationResult && (
-                  <div className="border-t pt-4 bg-green-50 rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-green-700 font-semibold mb-2">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Gerado com Sucesso!
-                    </div>
-                    <div className="text-sm space-y-1 text-green-700">
-                      <div>
-                        <strong>Empresa:</strong> {generationResult.nome_empresa}
-                      </div>
-                      <div>
-                        <strong>Demanda:</strong>{" "}
-                        {generationResult.demanda_contratada_kw} kW
-                      </div>
-                      <div>
-                        <strong>Máxima:</strong>{" "}
-                        {generationResult.potencia_maxima_kw} kW
-                      </div>
-                      <div>
-                        <strong>Média:</strong>{" "}
-                        {generationResult.potencia_media_kw} kW
-                      </div>
-                    </div>
-                    <Button
-                      onClick={handleDownloadFile}
-                      size="sm"
-                      className="w-full mt-3 bg-green-600 hover:bg-green-700"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download Excel
-                    </Button>
-                  </div>
-                )}
               </CardContent>
             </Card>
 
-            {/* Info Box */}
+            {/* Resultado */}
+            {generationResult && (
+              <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    Caso Gerado com Sucesso!
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <div className="text-sm text-green-700 mb-1">Nome da Empresa</div>
+                    <div className="font-semibold text-green-900">
+                      {generationResult.nome_empresa}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm text-green-700 mb-1">Demanda Contratada</div>
+                    <div className="font-semibold text-green-900">
+                      {generationResult.demanda_contratada_kw} kW
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm text-green-700 mb-1">Potência Máxima</div>
+                    <div className="font-semibold text-green-900">
+                      {generationResult.potencia_maxima_kw} kW
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm text-green-700 mb-1">Pontos de Dados</div>
+                    <div className="font-semibold text-green-900">
+                      {generationResult.total_pontos}
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={handleDownloadFile}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Excel
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Info */}
             <Card className="bg-blue-50 border-blue-200">
               <CardContent className="pt-6">
                 <div className="flex gap-3">
-                  <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div className="text-sm text-blue-700">
-                    <strong>Dica:</strong> Use casos de teste para validar sua
-                    análise de BESS antes de aplicar em dados reais. Cada
-                    geração cria uma empresa e curva de carga aleatórias.
+                    O arquivo gerado segue o formato Elspec e pode ser importado
+                    diretamente na análise de BESS.
                   </div>
                 </div>
               </CardContent>

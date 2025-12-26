@@ -74,3 +74,7 @@
 - [x] Gerador de nomes de empresas aleatórios
 - [x] Exportação em formato Excel (Elspec)
 - [x] Endpoint tRPC para geração de casos de teste
+
+
+## Bugs Reportados
+- [x] Erro 400 ao fazer download de caso de teste - endpoint tRPC não recebendo parâmetros (CORRIGIDO: ajustado componente para usar hook tRPC corretamente)
