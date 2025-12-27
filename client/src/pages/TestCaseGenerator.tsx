@@ -5,7 +5,7 @@
  * para simular diferentes cenários de empresas.
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,8 +19,9 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Download, Loader2, CheckCircle2 } from "lucide-react";
+import { AlertCircle, Download, Loader2, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 /**
  * Configuração dos estágios de empresa
@@ -116,18 +117,90 @@ const PERIOD_OPTIONS = [
   { value: 365, label: "1 Ano (365 dias)" },
 ];
 
+/**
+ * Gera dados de preview da curva de carga para um dia específico
+ */
+function generateLoadCurveForDay(
+  stage: number,
+  severity: "leve" | "moderado" | "grave",
+  dayIndex: number,
+  seed: number
+): Array<{ hora: string; potencia: number }> {
+  // Ranges de demanda por estágio
+  const ranges: Record<number, [number, number]> = {
+    1: [10, 50],
+    2: [50, 150],
+    3: [150, 500],
+    4: [500, 1500],
+    5: [1500, 5000],
+  };
+
+  const [min, max] = ranges[stage] || [100, 200];
+  
+  // Usar seed para gerar demanda consistente por dia
+  const seededRandom = (s: number) => {
+    const x = Math.sin(s) * 10000;
+    return x - Math.floor(x);
+  };
+  
+  const demanda = min + seededRandom(seed + dayIndex) * (max - min);
+
+  // Variabilidade conforme severidade
+  const variabilidade: Record<string, number> = {
+    leve: 0.05,
+    moderado: 0.15,
+    grave: 0.3,
+  };
+
+  const variacao = variabilidade[severity] || 0.15;
+
+  // Gerar 24 horas para o dia
+  const dados: Array<{ hora: string; potencia: number }> = [];
+
+  for (let hora = 0; hora < 24; hora++) {
+    // Curva de carga industrial
+    let fator = 0.3; // Madrugada
+    if (hora >= 6 && hora < 12) fator = 0.8; // Manhã
+    if (hora >= 12 && hora < 13) fator = 0.6; // Almoço
+    if (hora >= 13 && hora < 18) fator = 0.85; // Tarde
+    if (hora >= 18 && hora < 22) fator = 1.0; // Ponta
+    if (hora >= 22 && hora < 24) fator = 0.4; // Noite
+
+    // Usar seed para gerar valores consistentes
+    const randomValue = seededRandom(seed + dayIndex * 100 + hora);
+    const potencia = demanda * fator * (1 + (randomValue - 0.5) * variacao);
+
+    dados.push({
+      hora: `${String(hora).padStart(2, "0")}:00`,
+      potencia: Math.max(0, Math.round(potencia * 10) / 10),
+    });
+  }
+
+  return dados;
+}
+
 export default function TestCaseGenerator() {
   // Estado
   const [selectedStage, setSelectedStage] = useState<number>(3);
   const [selectedSeverity, setSelectedSeverity] = useState<"leve" | "moderado" | "grave">("moderado");
   const [selectedPeriod, setSelectedPeriod] = useState<number>(30);
+  const [currentDayPage, setCurrentDayPage] = useState<number>(1);
   const [generationResult, setGenerationResult] = useState<any>(null);
+
+  // Seed para gerar curvas consistentes
+  const seed = useMemo(() => Math.random() * 10000, [selectedStage, selectedSeverity, selectedPeriod]);
+
+  // Gerar preview da curva de carga para o dia atual
+  const loadCurvePreview = useMemo(() => {
+    return generateLoadCurveForDay(selectedStage, selectedSeverity, currentDayPage - 1, seed);
+  }, [selectedStage, selectedSeverity, currentDayPage, seed]);
 
   // Hook de mutation tRPC
   const generateMutation = trpc.bess.generateTestCase.useMutation({
     onSuccess: (data) => {
       if (data.sucesso) {
         setGenerationResult(data.dados);
+        setCurrentDayPage(1); // Reset para primeiro dia
         toast.success("Caso de teste gerado com sucesso!");
       } else {
         toast.error(data.erro || "Erro ao gerar caso de teste");
@@ -163,6 +236,24 @@ export default function TestCaseGenerator() {
     }
   };
 
+  /**
+   * Navega para o dia anterior
+   */
+  const handlePreviousDay = () => {
+    if (currentDayPage > 1) {
+      setCurrentDayPage(currentDayPage - 1);
+    }
+  };
+
+  /**
+   * Navega para o próximo dia
+   */
+  const handleNextDay = () => {
+    if (currentDayPage < selectedPeriod) {
+      setCurrentDayPage(currentDayPage + 1);
+    }
+  };
+
   // Configurações selecionadas
   const selectedStageConfig = COMPANY_STAGES.find((s) => s.id === selectedStage);
   const selectedSeverityConfig = SEVERITY_LEVELS.find(
@@ -171,7 +262,7 @@ export default function TestCaseGenerator() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-slate-900 mb-2">
@@ -183,7 +274,7 @@ export default function TestCaseGenerator() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Painel de Configuração */}
           <div className="lg:col-span-2 space-y-6">
             {/* Seleção de Estágio */}
@@ -273,7 +364,10 @@ export default function TestCaseGenerator() {
                     max={365}
                     step={1}
                     value={[selectedPeriod]}
-                    onValueChange={(value) => setSelectedPeriod(value[0])}
+                    onValueChange={(value) => {
+                      setSelectedPeriod(value[0]);
+                      setCurrentDayPage(1); // Reset para primeiro dia
+                    }}
                     className="w-full"
                   />
                 </div>
@@ -282,7 +376,10 @@ export default function TestCaseGenerator() {
                   {PERIOD_OPTIONS.map((option) => (
                     <Button
                       key={option.value}
-                      onClick={() => setSelectedPeriod(option.value)}
+                      onClick={() => {
+                        setSelectedPeriod(option.value);
+                        setCurrentDayPage(1); // Reset para primeiro dia
+                      }}
                       variant={selectedPeriod === option.value ? "default" : "outline"}
                       size="sm"
                       className="text-xs"
@@ -312,8 +409,8 @@ export default function TestCaseGenerator() {
             </Button>
           </div>
 
-          {/* Resumo e Resultado */}
-          <div className="space-y-6">
+          {/* Painel de Preview e Resultado */}
+          <div className="lg:col-span-2 space-y-6">
             {/* Resumo de Configuração */}
             <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
               <CardHeader>
@@ -343,69 +440,117 @@ export default function TestCaseGenerator() {
                 <div className="border-t pt-3">
                   <div className="text-sm text-slate-600 mb-1">Período</div>
                   <div className="font-semibold text-slate-900">
-                    {selectedPeriod} dias
+                    {selectedPeriod} dias ({selectedPeriod * 24} horas)
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Resultado */}
-            {generationResult && (
-              <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
-                    Caso Gerado com Sucesso!
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <div className="text-sm text-green-700 mb-1">Nome da Empresa</div>
-                    <div className="font-semibold text-green-900">
-                      {generationResult.nome_empresa}
-                    </div>
-                  </div>
+            {/* Preview da Curva de Carga */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Preview - Curva de Carga</CardTitle>
+                <CardDescription>
+                  Dia {currentDayPage} de {selectedPeriod} ({selectedPeriod * 24} horas totais)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Gráfico */}
+                <div className="w-full h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={loadCurvePreview}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis
+                        dataKey="hora"
+                        stroke="#64748b"
+                        style={{ fontSize: "12px" }}
+                      />
+                      <YAxis
+                        stroke="#64748b"
+                        style={{ fontSize: "12px" }}
+                        label={{ value: "Potência (kW)", angle: -90, position: "insideLeft" }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "#1e293b",
+                          border: "1px solid #475569",
+                          borderRadius: "8px",
+                          color: "#f1f5f9",
+                        }}
+                        formatter={(value) => [`${value} kW`, "Potência"]}
+                      />
+                      <Legend />
+                      <Line
+                        type="monotone"
+                        dataKey="potencia"
+                        stroke="#3b82f6"
+                        dot={false}
+                        strokeWidth={2}
+                        name="Potência (kW)"
+                        isAnimationActive={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
 
-                  <div>
-                    <div className="text-sm text-green-700 mb-1">Demanda Contratada</div>
-                    <div className="font-semibold text-green-900">
-                      {generationResult.demanda_contratada_kw} kW
-                    </div>
-                  </div>
+                {/* Paginação de Dias */}
+                <div className="flex items-center justify-between gap-2 pt-4 border-t">
+                  <Button
+                    onClick={handlePreviousDay}
+                    disabled={currentDayPage === 1}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
 
-                  <div>
-                    <div className="text-sm text-green-700 mb-1">Potência Máxima</div>
-                    <div className="font-semibold text-green-900">
-                      {generationResult.potencia_maxima_kw} kW
+                  <div className="flex-1 text-center">
+                    <div className="text-sm font-semibold text-slate-900">
+                      Dia {currentDayPage} de {selectedPeriod}
                     </div>
-                  </div>
-
-                  <div>
-                    <div className="text-sm text-green-700 mb-1">Pontos de Dados</div>
-                    <div className="font-semibold text-green-900">
-                      {generationResult.total_pontos}
+                    <div className="text-xs text-slate-600 mt-1">
+                      {Math.ceil((currentDayPage / selectedPeriod) * 100)}% do período
                     </div>
                   </div>
 
                   <Button
-                    onClick={handleDownloadFile}
-                    className="w-full bg-green-600 hover:bg-green-700"
+                    onClick={handleNextDay}
+                    disabled={currentDayPage === selectedPeriod}
+                    variant="outline"
+                    size="sm"
                   >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Excel
+                    <ChevronRight className="w-4 h-4" />
                   </Button>
-                </CardContent>
-              </Card>
-            )}
+                </div>
 
-            {/* Info */}
-            <Card className="bg-blue-50 border-blue-200">
-              <CardContent className="pt-6">
-                <div className="flex gap-3">
-                  <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                  <div className="text-sm text-blue-700">
-                    O arquivo gerado segue o formato Elspec e pode ser importado
-                    diretamente na análise de BESS.
+                {/* Seletor Rápido de Dias */}
+                <div className="space-y-2">
+                  <Label className="text-xs">Ir para dia:</Label>
+                  <div className="flex gap-1 flex-wrap">
+                    {Array.from({ length: Math.min(selectedPeriod, 7) }).map((_, i) => {
+                      const dayNum = i + 1;
+                      return (
+                        <Button
+                          key={dayNum}
+                          onClick={() => setCurrentDayPage(dayNum)}
+                          variant={currentDayPage === dayNum ? "default" : "outline"}
+                          size="sm"
+                          className="text-xs"
+                        >
+                          Dia {dayNum}
+                        </Button>
+                      );
+                    })}
+                    {selectedPeriod > 7 && (
+                      <Button
+                        onClick={() => setCurrentDayPage(selectedPeriod)}
+                        variant={currentDayPage === selectedPeriod ? "default" : "outline"}
+                        size="sm"
+                        className="text-xs"
+                      >
+                        Último
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>

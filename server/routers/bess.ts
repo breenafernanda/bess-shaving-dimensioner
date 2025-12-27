@@ -9,6 +9,11 @@ import { z } from "zod";
 import { spawn } from "child_process";
 import { readFile } from "fs/promises";
 import path from "path";
+import { fileURLToPath } from "url";
+
+// Corrige __dirname para ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Schema de validação para geração de caso de teste

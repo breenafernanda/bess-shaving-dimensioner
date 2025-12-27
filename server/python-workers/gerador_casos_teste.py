@@ -309,6 +309,9 @@ def gerar_arquivo_excel(
     ws.column_dimensions["A"].width = 30
     ws.column_dimensions["B"].width = 50
     
+    # Garantir que o diretório existe
+    import os
+    os.makedirs(os.path.dirname(caminho_saida), exist_ok=True)
     # Salvar arquivo
     wb.save(caminho_saida)
     
