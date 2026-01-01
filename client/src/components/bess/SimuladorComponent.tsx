@@ -49,8 +49,8 @@ export default function SimuladorComponent({
   const handleSimular = async () => {
     setIsLoading(true);
     try {
-      // Simular chamada ao backend
-      const response = await fetch("/api/trpc/bess.simular", {
+      // Chamada ao backend FastAPI (ajuste o endpoint conforme necessário)
+      const response = await fetch("http://localhost:9000/api/simular", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

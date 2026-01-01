@@ -38,8 +38,9 @@ export default function DimensionadorComponent({
   const handleDimensionar = async () => {
     setIsLoading(true);
     try {
-      // Simular chamada ao backend
-      const response = await fetch("/api/trpc/bess.dimensionar", {
+
+      // Chamada ao backend FastAPI (ajuste o endpoint conforme necessário)
+      const response = await fetch("http://localhost:9000/api/dimensionar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

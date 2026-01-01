@@ -34,7 +34,7 @@ export default function CurvaCarregaComponent({
 
       setIsLoading(true);
       try {
-        // Simular análise (em produção seria uma chamada tRPC)
+        // Simular análise (em produção seria uma chamada ao backend FastAPI)
         const result = {
           sucesso: true,
           analise: {

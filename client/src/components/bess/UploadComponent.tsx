@@ -44,8 +44,8 @@ export default function UploadComponent({ onComplete }: UploadComponentProps) {
       const formData = new FormData();
       formData.append("file", file);
 
-      // Enviar para backend
-      const response = await fetch("/api/trpc/bess.uploadAndAnalyze", {
+      // Enviar para backend FastAPI (ajuste o endpoint conforme necessário)
+      const response = await fetch("http://localhost:9000/api/upload-and-analyze", {
         method: "POST",
         body: formData,
       });

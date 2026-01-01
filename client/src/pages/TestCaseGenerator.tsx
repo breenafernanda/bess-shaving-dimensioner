@@ -6,7 +6,6 @@
  */
 
 import { useState, useMemo } from "react";
-import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -195,33 +194,19 @@ export default function TestCaseGenerator() {
     return generateLoadCurveForDay(selectedStage, selectedSeverity, currentDayPage - 1, seed);
   }, [selectedStage, selectedSeverity, currentDayPage, seed]);
 
-  // Hook de mutation tRPC
-  const generateMutation = trpc.bess.generateTestCase.useMutation({
-    onSuccess: (data) => {
-      if (data.sucesso) {
-        setGenerationResult(data.dados);
-        setCurrentDayPage(1); // Reset para primeiro dia
-        toast.success("Caso de teste gerado com sucesso!");
-      } else {
-        toast.error(data.erro || "Erro ao gerar caso de teste");
-      }
-    },
-    onError: (error) => {
-      console.error("Erro:", error);
-      toast.error(error.message || "Erro ao gerar caso de teste");
-    },
-  });
+  // Integração futura: aqui será feita a chamada para FastAPI
+  // const generateMutation = ...
 
   /**
-   * Gera um novo caso de teste usando tRPC
+   * Gera um novo caso de teste usando FastAPI (substituir chamada abaixo)
    */
   const handleGenerateTestCase = async () => {
     setGenerationResult(null);
-    generateMutation.mutate({
-      stage: selectedStage,
-      severity: selectedSeverity,
-      days: selectedPeriod,
-    });
+    // TODO: Substituir por chamada REST para FastAPI
+    // Exemplo:
+    // const response = await fetch('/api/generate-test-case', { ... })
+    // const data = await response.json();
+    // setGenerationResult(data)
   };
 
   /**

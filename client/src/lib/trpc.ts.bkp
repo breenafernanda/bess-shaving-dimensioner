@@ -1,0 +1,6 @@
+// Arquivo de stub para rodar o frontend sem backend tRPC
+export const trpc = {
+  createClient: () => ({
+    // Adicione mocks ou métodos vazios conforme necessário
+  })
+};
